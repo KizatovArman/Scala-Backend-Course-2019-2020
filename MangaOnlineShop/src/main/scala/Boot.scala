@@ -16,6 +16,7 @@ import scala.concurrent.duration._
 
 object Boot extends App with SprayJsonSerializer {
 
+
   implicit val system: ActorSystem = ActorSystem("manga-service")
   implicit val materializer: Materializer = ActorMaterializer()
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
@@ -33,39 +34,39 @@ object Boot extends App with SprayJsonSerializer {
       }
     } ~
     pathPrefix("my-manga-shop") {
-      path("manga" / Segment) { movieId =>
+      path("manga" / Segment) { mangaId =>
         get {
           complete {
-            (mangaManager ? OnlineShopManager.ReadManga(movieId)).mapTo[Either[ErrorResponse, Manga]]
+            (mangaManager ? OnlineShopManager.ReadManga(mangaId)).mapTo[Either[ErrorResponse, Manga]]
           }
         }
       } ~
-//          path("movie"/ Segment) { movieId =>
-//            delete {
-//              complete {
-//                (mangaManager ? actor.OnlineShopManager.DeleteMovie(movieId)).mapTo[Either[ErrorResponse, SuccessfulResponse]]
-//              }
-//            }
-//          } ~
+      path("manga"/ Segment) { mangaId =>
+        delete {
+          complete {
+            (mangaManager ? actor.OnlineShopManager.DeleteManga(mangaId)).mapTo[Either[ErrorResponse, SuccessfulResponse]]
+          }
+        }
+      } ~
       path("manga") {
         post {
-          entity(as[Manga]) { movie =>
+          entity(as[Manga]) { manga =>
             complete {
-              (mangaManager ? OnlineShopManager.CreateManga(movie)).mapTo[Either[ErrorResponse, SuccessfulResponse]]
+              (mangaManager ? OnlineShopManager.CreateManga(manga)).mapTo[Either[ErrorResponse, SuccessfulResponse]]
+            }
+          }
+        }
+      } ~
+      path("manga") {
+        put {
+          entity(as[Manga]) { manga =>
+            complete {
+              (mangaManager ? OnlineShopManager.UpdateManga(manga)).mapTo[Either[ErrorResponse, SuccessfulResponse]]
             }
           }
         }
       }
-//          path("movie") {
-//            put {
-//              entity(as[Movie]) { movie =>
-//                complete {
-//                  (movieManager ? MovieManager.UpdateMovie(movie)).mapTo[Either[ErrorResponse, SuccessfulResponse]]
-//                }
-//              }
-//            }
-//          }
-      }
+    }
 
 
   val bindingFuture = Http().bindAndHandle(route, "0.0.0.0", 8080)

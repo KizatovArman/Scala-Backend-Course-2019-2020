@@ -10,7 +10,7 @@ import scala.util.Try
 trait ElasticSerializer extends SprayJsonSerializer{
 
   implicit object MangaIndexable extends Indexable[Manga] {
-    override def json(movie: Manga): String = movie.toJson.compactPrint
+    override def json(manga: Manga): String = manga.toJson.compactPrint
   }
 
   // JSON string -> object
