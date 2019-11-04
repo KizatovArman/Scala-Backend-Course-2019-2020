@@ -63,7 +63,7 @@ class OnlineShopManager extends Actor with ActorLogging with ElasticSerializer{
 
       val real_sender = sender()
 
-      val cmd = client.execute(indexInto("manga" / "doc").id(manga.id).doc(manga))
+      val cmd = client.execute(indexInto("manga" / "_doc").id(manga.id).doc(manga))
 
       cmd.onComplete {
         case Success(value) =>
@@ -73,8 +73,8 @@ class OnlineShopManager extends Actor with ActorLogging with ElasticSerializer{
 
         case Failure(exception) =>
           println(exception.getMessage)
-          log.warning(s"Could not create a manga with ID: ${manga.id} because it already exists.")
-          tackleResponse(manga, real_sender, false, false, 409, s"Manga with ID: ${manga.id} already exists.")
+          log.warning(s"Internal server error occurred!")
+          tackleResponse(manga, real_sender, false, false, 500, s"Internal server error occurred!")
       }
 
     case ReadManga(id: String) =>
@@ -83,38 +83,69 @@ class OnlineShopManager extends Actor with ActorLogging with ElasticSerializer{
       val author1 = Author("AAAAA", "BBBBB")
       val manga1 = Manga("id-inf", "None", 9999, "None", author1)
 
-        client.execute { get(id).from("manga" / "_doc") }
-          .onComplete {
+        client.execute { get(id).from("manga" / "_doc") }.onComplete {
           case Success(either) =>
-            either.map ( e => e.result.to[Manga] ).foreach {
-              manga => println(manga)
-              log.info("There is a manga with ID: {}.", manga.id)
-              tackleResponse(manga, real_sender, true, true, 200, "Nothing to say")
-            }
-
-          // Problems occur to deserialize not found case
-          // TODO: Try to understand and fix it
+            either match {
+              case Right(sr) =>
+                if (sr.result.found) {
+                  val manga = sr.result.to[Manga]
+                  tackleResponse(manga, real_sender, true, true, 200, s"There is a manga with ID: ${manga.id}")
+                  log.info("There is a manga with ID: {}.", manga.id)
+                } else {
+                  tackleResponse(manga1, real_sender, false, false, 404, s"Can not found manga with specified ID: ${id}")
+                  log.error(s"Could not find a manga with ID: ${id} within ReadManga Request.")
+                }
+//                either.map ( e => e.result.to[Manga] ).foreach {
+//                  manga => println(manga)
+//                    log.info("There is a manga with ID: {}.", manga.id)
+//                    tackleResponse(manga, real_sender, true, true, 200, "Nothing to say")
+//                }
+              case Left(left) =>
+                tackleResponse(manga1, real_sender, false, false, left.status, "Internal Server Error Occurred!")
+                log.error(left.toString)
+        }
           case Failure(fail) =>
             println(fail.getMessage)
-            log.error(s"Could not find a manga with ID: ${id} within ReadManga Request.")
-            tackleResponse(manga1, real_sender, false, false, 404, s"Manga with ID: ${id} not found in ReadManga request.")
+            log.error(s"Internal server error occurred")
+            tackleResponse(manga1, real_sender, false, false, 500, s"Interval server error occured!")
         }
 
     case UpdateManga(manga: Manga) =>
       val real_sender = sender()
+      val author1 = Author("AAAAA", "BBBBB")
+      val manga1 = Manga("id-inf", "None", 9999, "None", author1)
 
-      val cmd = client.execute(indexInto("manga"/"doc").id(manga.id).doc(manga))
+      val cmd = client.execute(update(manga.id).in("manga" / "_doc").doc(
+        "title" -> manga.title,
+                "yearOfPublication" -> manga.yearOfPublication,
+                "genre" -> manga.genre,
+                "author" -> Map(
+                  "firstName" -> manga.author.firstName,
+                  "secondName" -> manga.author.secondName
+                )
+      ))
 
       cmd.onComplete {
-        case Success(value) =>
-          println(value)
-          log.info(s"Manga with ID: ${manga.id} was updated.")
-          tackleResponse(manga, real_sender, false, true, 200, s"Updated a movie with ID: ${manga.id}")
+        case Success(either) =>
+          either match {
+            case Right(sr) =>
+              if(sr.result.found) {
+                tackleResponse(manga, real_sender, false, true, 200, s"Manga with ID: ${manga.id} was updated.")
+                log.info(s"Manga with ID: ${manga.id} was updated.")
+              } else {
+                tackleResponse(manga, real_sender, false, false, 404, s"Can not found manga with specified ID: ${manga.id}")
+                log.error(s"Could not find a manga with ID: ${manga.id} within UpdateManga Request.")
+              }
 
-        case Failure(exception) =>
-          println(exception.getMessage)
-          log.error(s"Could not create a manga with ID: ${manga.id} because it already exists.")
-          tackleResponse(manga, real_sender, false, false, 409, s"Manga with ID: ${manga.id} already exists.")
+            case Left(left) =>
+              tackleResponse(manga1, real_sender, false, false, left.status, s"Can not found manga with specified ID: ${manga.id}")
+              log.error(left.toString)
+          }
+
+        case Failure(fail) =>
+          println(fail.getMessage)
+          log.error(s"Internal server error occurred")
+          tackleResponse(manga, real_sender, false, false, 500, s"Interval server error occured!")
       }
 
     case DeleteManga(id: String) =>
@@ -123,19 +154,23 @@ class OnlineShopManager extends Actor with ActorLogging with ElasticSerializer{
       val author1 = Author("CCCCC", "DDDDD")
       val manga1 = Manga("id-inf", "None", 9999, "None", author1)
 
-      client.execute{ delete(id).from("manga"/"_doc")}
-      .onComplete {
-        case Success(value) =>
-          println(value)
-          log.info(s"Manga with ID: ${id} has been deleted from database.")
-          tackleResponse(manga1, real_sender, false, true, 200, s"Manga with ID: ${id} was deleted.")
+      client.execute{ delete(id).from("manga"/"_doc")}.onComplete {
+        case Success(either) =>
+          either match {
+            case Right(sr) =>
+              if(sr.result.result != "not_found") {
+                tackleResponse(manga1, real_sender, false, true, 200, s"Manga with ID: ${id} was deleted.")
+                log.info("Manga with ID: {} has been deleted from database.", id)
+              } else if(sr.result.result == "not_found") {
+                tackleResponse(manga1, real_sender, false, false, 404, s"Manga with ID: ${id} is not found in DeleteManga request.")
+                log.error(s"Could not find a manga with ID: ${id} to Delete.")
+              }
+          }
 
-        case Failure(exception) =>
-          println(exception.getMessage)
-          log.error(s"Could not find a manga with ID: ${id} to Delete.")
-          tackleResponse(manga1, real_sender, false, false, 404, s"Manga with ID: ${id} not found. Delete is impossible.")
+        case Failure(fail) =>
+          println(fail.getMessage)
+          log.error(s"Internal server error occurred")
+          tackleResponse(manga1, real_sender, false, false, 500, s"Interval server error occured!")
       }
   }
 }
-
-// TODO: Deserialization problem when we look for non-existing manga by id. Don't know how to fix it(((
