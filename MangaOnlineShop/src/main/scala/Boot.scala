@@ -1,4 +1,4 @@
-import Serializer.SprayJsonSerializer
+import Serializer.{SprayJsonSerializer, TMSerializer}
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.http.scaladsl.Http
@@ -7,14 +7,18 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.stream.{ActorMaterializer, Materializer}
 import akka.util.Timeout
-import model.{ErrorResponse, Manga, Response, SuccessfulResponse}
-import actor.{OnlineShopManager}
+import model._
+import actor.OnlineShopManager
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
+import scala.util.{Failure, Success}
+import akka.http.scaladsl.marshalling.Marshal
+import com.typesafe.config.{Config, ConfigFactory}
 
 
-object Boot extends App with SprayJsonSerializer {
+object Boot extends App with SprayJsonSerializer with TMSerializer {
 
 
   implicit val system: ActorSystem = ActorSystem("manga-service")
@@ -24,6 +28,8 @@ object Boot extends App with SprayJsonSerializer {
   implicit val timeout: Timeout = Timeout(10.seconds)
 
   val mangaManager = system.actorOf(OnlineShopManager.props(), "manga-manager")
+  val log = LoggerFactory.getLogger("Boot")
+
 
   val route =
     path("healthcheck") {

@@ -1,4 +1,4 @@
-name := "MangaOnlineShop"
+name := "AWSHomework"
 
 version := "0.1"
 
@@ -18,5 +18,8 @@ libraryDependencies ++= Seq(
   "com.sksamuel.elastic4s" %% "elastic4s-core" % elastic4sVersion,
   "com.sksamuel.elastic4s" %% "elastic4s-http" % elastic4sVersion,
   "com.sksamuel.elastic4s" %% "elastic4s-json4s" % elastic4sVersion,
-  "org.scalatest" %% "scalatest" % "3.0.5" % Test
+  "org.scalatest" %% "scalatest" % "3.0.5" % Test,
+
+  // AWS SDK
+  "com.amazonaws" % "aws-java-sdk-s3" % "1.11.670"
 )
