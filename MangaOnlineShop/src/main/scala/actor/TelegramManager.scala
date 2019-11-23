@@ -46,8 +46,8 @@ class TelegramManager extends Actor with ActorLogging with ElasticSerializer wit
   implicit val materializer: Materializer = ActorMaterializer()
   implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
-  val token = "938105045:AAHCQ6RLGrTszymRG3VSMFcQMYRpPQM6yYQ"
-  val chat_id = -352088280
+  val token = ""
+  val chat_id =
 
 
   def sendMessageByBot(manga: Manga, requestType: Int, requestStatus: Int): Unit = {
